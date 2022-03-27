@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../../T-GCN-master/AST-GCN/.idea/AST-GCN.iml" filepath="$PROJECT_DIR$/../../T-GCN-master/AST-GCN/.idea/AST-GCN.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../MC_STGCN/.idea/MC_STGCN.iml" filepath="$PROJECT_DIR$/../MC_STGCN/.idea/MC_STGCN.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../Transformer_Time_Series/.idea/Transformer_Time_Series.iml" filepath="$PROJECT_DIR$/../Transformer_Time_Series/.idea/Transformer_Time_Series.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../T-GCN-master/KST-GCN/code/.idea/code.iml" filepath="$PROJECT_DIR$/../../T-GCN-master/KST-GCN/code/.idea/code.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/multivariate-prediction-master.iml" filepath="$PROJECT_DIR$/.idea/multivariate-prediction-master.iml" />
+    </modules>
+  </component>
+</project>
