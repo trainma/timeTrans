@@ -86,7 +86,7 @@ class context_embedding(torch.nn.Module):
         #     x = self.causal_convolution(x)
         # else:
         #     x= self.causal_convolution2(x)
-        return F.tanh(self.causal_convolution(x))
+        return torch.tanh(self.causal_convolution(x))
 
         # if x.shape[1]==32:
         #     x_1=F.tanh(self.causal_convolution(x[0:0+150])) #torch.Size([150, 32, 1])

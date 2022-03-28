@@ -10,28 +10,29 @@ from utils2 import *
 np.seterr(divide='ignore', invalid='ignore')
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
-parser = argparse.ArgumentParser(description='PyTorch Time series forecasting')
-parser.add_argument('--data', type=str, default='./data/airquality.xlsx', help='location of the data file')
-parser.add_argument('--model', type=str, default='transformer', help='')
-parser.add_argument('--window', type=int, default=24 * 7, help='window size')
-parser.add_argument('--horizon', type=int, default=3)
-parser.add_argument('--d_model', type=int, default=64)
-parser.add_argument('--num_layers', type=int, default=3)
-parser.add_argument('--dec_layers', type=int, default=1)
-parser.add_argument('--position', type=str, default=3)
-parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=200, help='upper epoch limit')
-parser.add_argument('--batch_size', type=int, default=128, metavar='N', help='batch size')
-parser.add_argument('--dropout', type=float, default=0.05, help='dropout applied to layers (0 = no dropout)')
-parser.add_argument('--seed', type=int, default=54321, help='random seed')
-parser.add_argument('--log_interval', type=int, default=2000, metavar='N', help='report interval')
-parser.add_argument('--save', type=str, default='save/model_air_2.pt', help='path to save the final model')
-parser.add_argument('--optim', type=str, default='adam')
-parser.add_argument('--amsgrad', type=str, default=True)
-parser.add_argument('--lr', type=float, default=0.0001)
-parser.add_argument('--L1Loss', type=bool, default=False)
-parser.add_argument('--normalize', type=int, default=2)
-args = parser.parse_args()
+# parser = argparse.ArgumentParser(description='PyTorch Time series forecasting')
+# parser.add_argument('--data', type=str, default='./data/airquality.xlsx', help='location of the data file')
+# parser.add_argument('--model', type=str, default='transformer', help='')
+# parser.add_argument('--window', type=int, default=24 * 7, help='window size')
+# parser.add_argument('--horizon', type=int, default=3)
+# parser.add_argument('--d_model', type=int, default=64)
+# parser.add_argument('--num_layers', type=int, default=3)
+# parser.add_argument('--dec_layers', type=int, default=1)
+# parser.add_argument('--position', type=str, default=3)
+# parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping')
+# parser.add_argument('--epochs', type=int, default=200, help='upper epoch limit')
+# parser.add_argument('--batch_size', type=int, default=128, metavar='N', help='batch size')
+# parser.add_argument('--dropout', type=float, default=0.05, help='dropout applied to layers (0 = no dropout)')
+# parser.add_argument('--seed', type=int, default=12555, help='random seed')
+# parser.add_argument('--log_interval', type=int, default=2000, metavar='N', help='report interval')
+# parser.add_argument('--save', type=str, default='save/model_air_2.pt', help='path to save the final model')
+# parser.add_argument('--optim', type=str, default='adam')
+# parser.add_argument('--amsgrad', type=str, default=True)
+# parser.add_argument('--lr', type=float, default=0.0001)
+# parser.add_argument('--L1Loss', type=bool, default=False)
+# parser.add_argument('--normalize', type=int, default=2)
+# args = parser.parse_args()
+device = torch.device("cuda")
 
 
 def calc_corr(a, b):
@@ -44,6 +45,14 @@ def calc_corr(a, b):
 
     corr_factor = cov_ab / sq
     return corr_factor
+
+
+def MSE(pred, truth):
+    return torch.mean(torch.square(pred - truth))
+
+
+def RMSE(pred, truth):
+    return torch.sqrt(torch.mean(torch.square(pred - truth)))
 
 
 def evaluate(data, X, Y, model, evaluateL2, evaluateL1, args, save_csv=False):
@@ -60,17 +69,28 @@ def evaluate(data, X, Y, model, evaluateL2, evaluateL1, args, save_csv=False):
 
         output = model(X)
         if predict is None:
-            predict = output.clone().detach()# predict torch.Size([128(batch_size), 1])
-            test = Y # test torch.Size([128(batch_size), 6(feature_size])
+            predict = output.clone().detach()  # predict torch.Size([128(batch_size), 1])
+            test = Y  # test torch.Size([128(batch_size), 6(feature_size])
         else:
             predict = torch.cat((predict, output.clone().detach()))
             test = torch.cat((test, Y))
 
         scale = data.scale.expand(output.size(0), data.m)
-        total_loss += float(evaluateL2(output * scale, Y * scale).data.item()) #output*scale (bz,fz)(128 6)
-        total_loss_l1 += float(evaluateL1(output * scale, Y * scale).data.item())
-        tmp_predict = torch.cat((tmp_predict.cpu(), output.cpu().detach() * scale.cpu()), 0)
-        tmp_test = torch.cat((tmp_test.cpu(), Y.cpu() * scale.cpu()), 0)
+        tmp_scale = scale[:, 0].view(-1, 1)
+        # output = data.label_scale.inverse_transform(output.cpu().detach().numpy())
+        # Y = data.label_scale.inverse_transform(Y.cpu().detach().numpy())
+
+        # output = torch.as_tensor(output, device=device)
+        # Y = torch.as_tensor(Y, device=device)
+
+        # total_loss += float(evaluateL2(output, Y).data.item())
+        # total_loss_l1 += float(evaluateL1(output, Y).data.item())
+
+        total_loss += float(evaluateL2(output * tmp_scale, Y * tmp_scale).data.item())  # output*scale (bz,fz)(128 6)
+        total_loss_l1 += float(evaluateL1(output * tmp_scale, Y * tmp_scale).data.item())
+
+        tmp_predict = torch.cat((tmp_predict.cpu(), output.cpu().detach() * tmp_scale.cpu()), 0)
+        tmp_test = torch.cat((tmp_test.cpu(), Y.cpu() * tmp_scale.cpu()), 0)
 
         n_samples += int((output.size(0) * data.m))
 
@@ -93,9 +113,9 @@ def evaluate(data, X, Y, model, evaluateL2, evaluateL1, args, save_csv=False):
 
     # truth=np.array(Ytest.reshape(-1,1))
     # test_result=np.array(predict.reshape(-1,1))
-
-    mse = mean_squared_error(truth, test_result)
-    rmse = mse ** 0.5
+    mse = MSE(test_result,truth)
+    #mse = mean_squared_error(truth, test_result)
+    rmse = RMSE(test_result,truth)
     mae = mean_absolute_error(truth, test_result)
     correlation = calc_corr(truth, test_result)
     truth = np.array(truth)
@@ -119,12 +139,15 @@ def train(data, X, Y, model, criterion, optim, args):
     n_samples = 0
     # X: torch.Size([16, 168, 321])
     # Y: torch.Size([16, 321])
-    for X, Y in data.get_batches(X, Y, args.batch_size, True):
+    i = 1
+    for i, (X, Y) in enumerate(data.get_batches(X, Y, args.batch_size, False)):
         optim.zero_grad()
         output = model(X)
         scale = data.scale.expand(output.size(0), data.m)
+        scale_tmp = scale[:, 0].view(-1, 1)
         # print(scale.shape)
-        loss = criterion(output * scale, Y * scale)
+        loss = criterion(output * scale_tmp, Y * scale_tmp)
+        # loss = criterion(output, Y)
         loss.backward()
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
@@ -132,6 +155,7 @@ def train(data, X, Y, model, criterion, optim, args):
         total_loss += loss.data.item()
         n_samples += int((output.size(0) * data.m))
     return total_loss / n_samples
+    # return total_loss / i
 
 
 def makeOptimizer(params, args):

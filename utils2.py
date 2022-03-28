@@ -39,48 +39,49 @@ class Data_utility(object):
         self.device = device
         self.P = args.window
         self.h = args.horizon
-        self.data_scale = MinMaxScaler()
-        self.label_scale = MinMaxScaler()
+        # self.data_scale = MinMaxScaler()
+        # self.label_scale = MinMaxScaler()
         # fin = open(file_name)
         df = pd.read_excel(file_name)
         self.rawdat = np.array(df)
         # self.rawdat = np.loadtxt(fin, delimiter=',')  # (26304,321)
-        self.dat = self.data_scale.fit_transform(self.rawdat)
-        # self.dat = np.zeros(self.rawdat.shape)  # (26304,321)
-        self.label = self.label_scale.fit_transform(self.rawdat[:, 0].reshape(-1, 1))
+        # self.dat = self.data_scale.fit_transform(self.rawdat)
+        self.dat = np.zeros(self.rawdat.shape)  # (26304,321)
+        # self.label = self.label_scale.fit_transform(self.rawdat[:, 0].reshape(-1, 1))
         self.n, self.m = self.dat.shape  # n=26304 m=321
-        # self.scale = np.ones(self.m)
-        # self._normalized(args.normalize)
+        self.scale = np.ones(self.m)
+        # self.label_scale = np.ones(1)
+        self._normalized(args.normalize)
         # 分训练样本 测试样本
 
         self._split(int(train * self.n), int((train + valid) * self.n), self.n)
 
-        # self.scale = torch.as_tensor(self.scale, device=device, dtype=torch.float)
+        self.scale = torch.as_tensor(self.scale, device=device, dtype=torch.float)
 
-        # tmp = self.test[1] * self.scale.expand(self.test[1].size(0), self.m)
-        tmp = self.label_scale.inverse_transform(np.array(self.test[1].clone().cpu()))
-        # self.scale = Variable(self.scale)
+        tmp = self.test[1] * self.scale.expand(self.test[1].size(0), self.m)
+        #tmp = self.label_scale.inverse_transform(np.array(self.test[1].clone().cpu()))
+        self.scale = Variable(self.scale)
 
         self.rse = normal_std(tmp)
 
-       # self.rae = torch.mean(torch.abs(tmp - torch.mean(tmp)))
-        self.rae = np.mean(np.abs(tmp - np.mean(tmp)))
+        self.rae = torch.mean(torch.abs(tmp - torch.mean(tmp)))
+        #self.rae = np.mean(np.abs(tmp - np.mean(tmp)))
         # fin.close()
 
-    # def _normalized(self, normalize):
-    #     # normalized by the maximum value of entire matrix.
-    #
-    #     if (normalize == 0):
-    #         self.dat = self.rawdat
-    #
-    #     if (normalize == 1):
-    #         self.dat = self.rawdat / np.max(self.rawdat)
-    #
-    #     # normlized by the maximum value of each row(sensor).
-    #     if (normalize == 2):
-    #         for i in range(self.m):
-    #             self.scale[i] = np.max(np.abs(self.rawdat[:, i]))
-    #             self.dat[:, i] = self.rawdat[:, i] / np.max(np.abs(self.rawdat[:, i]))
+    def _normalized(self, normalize):
+        # normalized by the maximum value of entire matrix.
+
+        if (normalize == 0):
+            self.dat = self.rawdat
+
+        if (normalize == 1):
+            self.dat = self.rawdat / np.max(self.rawdat)
+
+        # normlized by the maximum value of each row(sensor).
+        if (normalize == 2):
+            for i in range(self.m):
+                self.scale[i] = np.max(np.abs(self.rawdat[:, i]))
+                self.dat[:, i] = self.rawdat[:, i] / np.max(np.abs(self.rawdat[:, i]))
 
     def _split(self, train, valid, test):
         # P:window h:horizon
@@ -105,7 +106,7 @@ class Data_utility(object):
             end = idx_set[i] - self.h + 1
             start = end - self.P
             X[i, :, :] = torch.as_tensor(self.dat[start:end, :], device=self.device)
-            Y[i, :] = torch.as_tensor(self.label[idx_set[i], :], device=self.device)
+            Y[i, :] = torch.as_tensor(self.dat[idx_set[i], 1], device=self.device)
 
         return [X, Y]
 
